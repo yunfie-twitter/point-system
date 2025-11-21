@@ -1,0 +1,28 @@
+# PHP設定
+php_flag display_errors Off
+php_flag log_errors On
+php_value error_log /path/to/error.log
+
+# セキュリティヘッダー
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# HTTPSリダイレクト (本番環境でコメント解除)
+# RewriteEngine On
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+# URLリライト (必要に応じて)
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# センシティブファイルへのアクセス制限
+<FilesMatch "(config\.php|db\.php|functions\.php|\.sql)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
