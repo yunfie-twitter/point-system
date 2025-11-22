@@ -32,17 +32,65 @@ Misskeyの投稿をwebhookで受け取り、ポイントを付与するシステ
 - 在庫管理
 - 交換履歴
 
+### 🆕 新機能
+
+#### 通知システム
+- リアルタイム通知
+- 既読/未読管理
+- ポイント獲得、ランク変動などの通知
+
+#### ユーザー設定
+- 表示名変更
+- メールアドレス設定
+- 通知設定のカスタマイズ
+- アカウント削除機能
+
+#### 管理パネル
+- イベント管理（追加・編集・削除）
+- 商品管理（在庫・価格設定）
+- ユーザーポイント調整
+- システム統計表示
+- アクティビティログ
+
+#### 紹介プログラム
+- 紹介コード生成
+- 紹介報酬システム
+- 紹介履歴表示
+
+#### アンケートシステム
+- アンケート回答でポイント獲得
+- アンケート一覧表示
+- 回答済み管理
+
+#### REST API
+- ユーザー情報取得
+- ポイント情報取得
+- 履歴取得
+- ランキング取得
+- ポイント付与（管理者用）
+- システム統計取得
+
 ## セットアップ
 
-### 1. データベースセットアップ
+### 1. 初期セットアップ
 
-```bash
-# 提供されたSQLダンプをインポート
-mysql -u username -p cf866966_wallet < schema.sql
+**setup.php にアクセス**して自動セットアップを実行:
 
-# webhook_tokensテーブルを追加
-mysql -u username -p cf866966_wallet < schema_webhook_tokens.sql
 ```
+https://yourdomain.com/setup.php
+```
+
+以下のテーブルが自動的に作成されます:
+- users
+- point_events
+- point_history
+- webhook_tokens
+- exchange_products
+- exchange_history
+- misskey_post_logs
+- notifications
+- user_settings
+- referrals
 
 ### 2. 設定ファイル編集
 
@@ -62,16 +110,17 @@ define('OAUTH_REDIRECT_URI', 'https://yourdomain.com/callback.php');
 
 // Webhook URL
 define('WEBHOOK_BASE_URL', 'https://yourdomain.com/webhook.php');
+
+// サイトURL（紹介機能用）
+define('SITE_URL', 'https://yourdomain.com');
 ```
 
-### 3. イベント追加
+### 3. 管理者権限設定
+
+データベースで管理者ユーザーの `is_admin` を 1 に設定:
 
 ```sql
--- Misskey投稿イベントの例
-INSERT INTO point_events 
-(event_key, event_type, name, description, points, cooldown_seconds, daily_limit, enabled) 
-VALUES 
-('misskey_post_hashtag', 'misskey', 'ハッシュタグ付き投稿', '指定ハッシュタグ付きで投稿する', 10, 3600, 5, 1);
+UPDATE users SET is_admin = 1 WHERE user_id = 'your_user_id';
 ```
 
 ## 使い方
@@ -100,6 +149,26 @@ VALUES
    - 交換ページから商品を選択
    - ポイントで交換
 
+6. **紹介プログラム**
+   - 紹介コードを友達にシェア
+   - 友達が登録すると両者にボーナスポイント
+
+### 管理者側
+
+1. **admin.php にアクセス**
+   - イベント管理
+   - 商品管理
+   - ユーザー管理
+   - システム統計確認
+
+2. **イベント追加**
+   - 新規イベント作成
+   - ポイント数、クールダウン、日次制限を設定
+
+3. **商品追加**
+   - 交換可能な商品を追加
+   - 必要ポイント数と在庫を設定
+
 ## ファイル構成
 
 ```
@@ -107,6 +176,8 @@ VALUES
 ├── config.php              # 設定
 ├── db.php                  # DB接続
 ├── functions.php           # 共通関数
+├── header.php             # 共通ヘッダー 🆕
+├── footer.php             # 共通フッター 🆕
 ├── index.php              # トップページ
 ├── login.php              # OAuth開始
 ├── callback.php           # OAuthコールバック
@@ -117,9 +188,75 @@ VALUES
 ├── webhook.php            # Webhook受信
 ├── exchange.php           # ポイント交換
 ├── ranking.php            # ランキング
+├── history.php            # ポイント履歴 🆕
+├── notifications.php      # 通知一覧 🆕
+├── settings.php           # ユーザー設定 🆕
+├── admin.php              # 管理パネル 🆕
+├── setup.php              # 初期セットアップ 🆕
+├── api.php                # REST API 🆕
+├── referral.php           # 紹介プログラム 🆕
+├── survey.php             # アンケート回答 🆕
+├── survey_list.php        # アンケート一覧 🆕
+├── expire_points.php      # ポイント有効期限処理
 ├── style.css              # スタイル
 ├── schema_webhook_tokens.sql
+├── sample_events.sql
+├── SETUP.md
 └── README.md
+```
+
+## API エンドポイント
+
+### GET /api.php
+
+#### ユーザー情報取得
+```
+GET /api.php?endpoint=user&user_id={user_id}
+```
+
+#### ポイント情報取得
+```
+GET /api.php?endpoint=points&user_id={user_id}
+```
+
+#### 履歴取得
+```
+GET /api.php?endpoint=history&user_id={user_id}&limit=20&offset=0
+```
+
+#### ランキング取得
+```
+GET /api.php?endpoint=ranking&limit=10&type=monthly
+```
+
+#### イベント一覧
+```
+GET /api.php?endpoint=events
+```
+
+#### 商品一覧
+```
+GET /api.php?endpoint=products
+```
+
+#### システム統計
+```
+GET /api.php?endpoint=stats
+```
+
+### POST /api.php
+
+#### ポイント付与
+```json
+POST /api.php?endpoint=add_points
+Content-Type: application/json
+
+{
+  "user_id": "user123",
+  "points": 100,
+  "reason": "API経由でポイント付与",
+  "point_type": "bonus"
+}
 ```
 
 ## セキュリティ
@@ -128,6 +265,8 @@ VALUES
 - トークンに有効期限あり (1年)
 - Note IDで重複チェック
 - クールダウンと日次制限で不正防止
+- SQL インジェクション対策（プリペアドステートメント使用）
+- XSS対策（htmlspecialchars使用）
 
 ## Webhookペイロード例
 
@@ -164,6 +303,21 @@ VALUES
 3. 日次制限に達していないか確認
 4. misskey_post_logsで重複確認
 
+### 管理パネルにアクセスできない
+
+1. is_admin が 1 に設定されているか確認
+2. セッションが有効か確認
+3. ログインし直す
+
+## 今後の予定機能
+
+- [ ] メール通知機能
+- [ ] ポイント履歴のエクスポート（CSV）
+- [ ] グラフ表示（ポイント獲得推移）
+- [ ] バッジシステム
+- [ ] マルチ言語対応
+- [ ] テーマ切り替え機能
+
 ## ライセンス
 
 MIT License
@@ -171,3 +325,7 @@ MIT License
 ## 作者
 
 ゆんふぃ (@yunfie_misskey)
+
+## リポジトリ
+
+https://github.com/yunfie-twitter/point-system
